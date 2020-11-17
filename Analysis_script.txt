@@ -1,0 +1,80 @@
+##################################################
+## software under linux: seqkit , nucmer
+##################################################
+#  download the SARS-Cov-2 genomics sequence(*.fasta) from Gisaid website( comploe, high coverage only, low coverage exclusion, Host=human, Virus name=hCoV-19)
+# download  NC_045512.2.fa from NCBI
+
+# cd /mnt/e/2019_nCov/20200508/ #
+
+input=gisaid_hcov-19_2020_06_14_04.fasta
+
+# seqkit grep  -s -p - $input -v |sed 's/^M$//' |awk '/^>/{f=!d[$1];d[$1]=1}f' >Gisaid_RMD.fasta
+
+
+## clear the data
+seqkit grep  -s -p - $input -v > Gisaid_clear.fasta  # remove the data with '-'
+
+## Run nucmer to obtain variant file
+
+ref=NC_045512.2.fa # The reference SARS-CoV-2 Wuhan Genome
+
+## Covert the DOS/window file format to UNIX format for both ref and input files
+
+sed 's/^M$//' Gisaid_clear.fasta > Gisaid_clear_format.fasta
+sed 's/^M$//' NC_045512.2.fa > ref.fa
+
+# optional 1 : dos2unix $input 
+# optional 2:  tr -d '\r' < <input> > <output>
+
+### remove fasta sequence with duplicated ID 
+awk '/^>/{f=!d[$1];d[$1]=1}f' Gisaid_clear_format.fasta > Gisaid_RMD.fasta
+### calculate total sample 
+grep -c '^>' Gisaid_RMD.fasta
+### downsampling fasta seq:
+seqkit sample --proportion 0.15 Gisaid_RMD.fasta > Gisaid_RMD_15.fasta
+
+
+### Snap-calling
+nucmer --forward -p nucmer ref.fa Gisaid_RMD.fasta
+show-coords -r -c -l nucmer.delta > nucmer.coords
+show-snps nucmer.delta -T -l > nucmer.snps
+#########################################################
+
+##################################################################################################
+seqkit grep -s -i -p AACGAACTTCTCCTGCTAGAAT $input -v  > ChinaCDC-N-F-not-AAC.fasta
+seqkit grep -s -i -p AACGAACTTCTCCTGCTAGAAT Gisaid_RMD.fasta > ChinaCDC-N-F-AAC.fasta
+
+
+grep "^>" Gisaid_RMD.fasta | cut -d '|' -f 1| cut -d '/' -f 2 -> country-infor.txt
+grep "^>" ChinaCDC-N-F-AAC.fasta | cut -d '|' -f 1| cut -d '/' -f 2 -> AAC-country-infor.txt
+
+#seqkit grep -s -i -p AACGAACTTCTCCTGCTAGAAT Gisaid_RMD.fasta > ChinaCDC-N-F-AAC.fasta | grep "^>" | cut -d '|' -f 1| cut -d '/' -f 2 -> AAC-country-infor.txt
+
+#########################
+## Asssay primer postion find
+seqkit locate -p $id NC_045512.2.fa
+
+cat Primer_info.txt | while read id; do (seqkit locate -p $id NC_045512.2.fa| cut -f 5,6,7 | tail -n 1 >> loate.txt)  done
+##################################################################################
+
+############
+seqkit grep -s -i -p AACGAACTTCTCCTGCTAGAAT gisaid_RMD.fasta > ChinaCDC-N-F-AAC.fasta
+seqkit grep -s -i -p AACGAACTTCTCCTGCTAGAAT gisaid_hcov-19_2020_04_30_06.fasta -v  > ChinaCDC-N-F-not-AAC.fasta
+
+# get the virus islation/strain information
+
+grep "^>" gisaid_hcov-19_2020_04_27_12.fasta |cut -d '|' -f 2
+
+grep "^>" gisaid_hov | cut -d '|' -f 2,3 > Sample-infor.txt
+
+
+
+# get the country information
+ grep "^>" gisaid_hcov-19_2020_04_27_12.fasta |cut -d '|' -f 1| cut -d '/' -f 2
+
+
+seqkit amplicon  -F AGTTGTGATCAACTCCGCGA -R TAAGACGGGCTGCACTTACA gisaid_hcov-19_2020_04_27_12.fasta | seqkit stat 
+
+
+
+
